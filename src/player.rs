@@ -5,6 +5,47 @@ use crate::combat::{ArmorType, Item, WeaponType};
 use crate::inventory::Inventory;
 use crate::world::World;
 
+/// The four isometric directions the player can face
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Direction {
+    UpLeft,    // W key - toward top-left of screen
+    UpRight,   // D key - toward top-right of screen
+    DownLeft,  // A key - toward bottom-left of screen
+    DownRight, // S key - toward bottom-right of screen
+}
+
+impl Direction {
+    /// Returns the weapon offset (x, y) relative to player center for this direction
+    pub fn weapon_offset(&self) -> (f32, f32) {
+        match self {
+            Direction::UpLeft => (-15.0, -20.0),
+            Direction::UpRight => (15.0, -20.0),
+            Direction::DownLeft => (-15.0, 5.0),
+            Direction::DownRight => (15.0, 5.0),
+        }
+    }
+
+    /// Returns the weapon end offset for drawing the weapon line
+    pub fn weapon_end_offset(&self) -> (f32, f32) {
+        match self {
+            Direction::UpLeft => (-30.0, -35.0),
+            Direction::UpRight => (30.0, -35.0),
+            Direction::DownLeft => (-30.0, 10.0),
+            Direction::DownRight => (30.0, 10.0),
+        }
+    }
+
+    /// Returns attack flash position offset
+    pub fn attack_flash_offset(&self) -> (f32, f32) {
+        match self {
+            Direction::UpLeft => (-25.0, -30.0),
+            Direction::UpRight => (25.0, -30.0),
+            Direction::DownLeft => (-25.0, 5.0),
+            Direction::DownRight => (25.0, 5.0),
+        }
+    }
+}
+
 pub struct Player {
     pub x: f32,
     pub y: f32,
@@ -15,6 +56,7 @@ pub struct Player {
     pub inventory: Inventory,
     pub attack_cooldown: f32,
     pub regen_timer: f32,
+    pub facing: Direction,
 }
 
 impl Player {
@@ -29,6 +71,7 @@ impl Player {
             inventory: Inventory::new(),
             attack_cooldown: 0.0,
             regen_timer: 0.0,
+            facing: Direction::DownRight, // Default facing
         }
     }
 
@@ -65,6 +108,16 @@ impl Player {
         if len > 0.0 {
             dx /= len;
             dy /= len;
+
+            // Update facing direction based on movement
+            // In isometric: dx < 0 means moving toward left side of screen
+            //               dy < 0 means moving toward top of screen
+            self.facing = match (dx < 0.0, dy < 0.0) {
+                (true, true) => Direction::UpLeft,    // Moving up-left (W)
+                (false, true) => Direction::UpRight,  // Moving up-right (D)
+                (true, false) => Direction::DownLeft, // Moving down-left (A)
+                (false, false) => Direction::DownRight, // Moving down-right (S)
+            };
         }
 
         self.x += dx * speed * dt;
@@ -136,24 +189,34 @@ impl Player {
         // Head (circle)
         draw_circle(screen_x, screen_y - 35.0, 10.0, Color::from_rgba(220, 180, 140, 255));
 
-        // Weapon indicator (line extending from body)
+        // Weapon indicator (line extending from body in facing direction)
         let weapon_color = match &self.weapon {
             WeaponType::Sword => LIGHTGRAY,
             WeaponType::Axe => Color::from_rgba(100, 80, 60, 255),
             WeaponType::Mace => DARKGRAY,
         };
+
+        let (weapon_start_x, weapon_start_y) = self.facing.weapon_offset();
+        let (weapon_end_x, weapon_end_y) = self.facing.weapon_end_offset();
+
         draw_line(
-            screen_x + 15.0,
-            screen_y - 10.0,
-            screen_x + 30.0,
-            screen_y - 25.0,
+            screen_x + weapon_start_x,
+            screen_y + weapon_start_y,
+            screen_x + weapon_end_x,
+            screen_y + weapon_end_y,
             3.0,
             weapon_color,
         );
 
         // Attack animation (flash when attacking)
         if self.attack_cooldown > 0.2 {
-            draw_circle(screen_x + 25.0, screen_y - 15.0, 8.0, Color::from_rgba(255, 255, 200, 150));
+            let (flash_x, flash_y) = self.facing.attack_flash_offset();
+            draw_circle(
+                screen_x + flash_x,
+                screen_y + flash_y,
+                8.0,
+                Color::from_rgba(255, 255, 200, 150),
+            );
         }
     }
 }

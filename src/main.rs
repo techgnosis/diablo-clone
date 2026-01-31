@@ -20,6 +20,55 @@ pub enum GameState {
     GameOver,
 }
 
+/// Floating text that rises and fades out
+pub struct FloatingText {
+    text: String,
+    world_x: f32,
+    world_y: f32,
+    offset_y: f32,    // Vertical offset that increases over time
+    lifetime: f32,    // Remaining lifetime in seconds
+    max_lifetime: f32,
+}
+
+impl FloatingText {
+    pub fn new(text: String, world_x: f32, world_y: f32) -> Self {
+        Self {
+            text,
+            world_x,
+            world_y,
+            offset_y: 0.0,
+            lifetime: 1.0,
+            max_lifetime: 1.0,
+        }
+    }
+
+    pub fn update(&mut self, dt: f32) {
+        self.lifetime -= dt;
+        self.offset_y += 30.0 * dt; // Rise upward
+    }
+
+    pub fn is_expired(&self) -> bool {
+        self.lifetime <= 0.0
+    }
+
+    pub fn draw(&self, camera: &GameCamera) {
+        let (screen_x, screen_y) = camera.world_to_screen(self.world_x, self.world_y);
+        let alpha = (self.lifetime / self.max_lifetime * 255.0) as u8;
+
+        let color = Color::from_rgba(255, 255, 100, alpha); // Yellow text
+        let font_size = 18.0;
+
+        let text_dims = measure_text(&self.text, None, font_size as u16, 1.0);
+        draw_text(
+            &self.text,
+            screen_x - text_dims.width / 2.0,
+            screen_y - 50.0 - self.offset_y,
+            font_size,
+            color,
+        );
+    }
+}
+
 pub struct Game {
     state: GameState,
     player: Player,
@@ -28,6 +77,7 @@ pub struct Game {
     monsters: Vec<Monster>,
     ground_items: Vec<inventory::GroundItem>,
     spawned_chunks: HashSet<(i32, i32)>,
+    floating_texts: Vec<FloatingText>,
 }
 
 impl Game {
@@ -47,6 +97,7 @@ impl Game {
             monsters: Vec::new(),
             ground_items: Vec::new(),
             spawned_chunks: HashSet::new(),
+            floating_texts: Vec::new(),
         };
 
         // Initial monster spawn around player
@@ -139,6 +190,12 @@ impl Game {
         // Check for item pickup
         self.check_item_pickup();
 
+        // Update floating texts
+        for text in &mut self.floating_texts {
+            text.update(dt);
+        }
+        self.floating_texts.retain(|t| !t.is_expired());
+
         // Check player death
         if self.player.health <= 0 {
             self.state = GameState::GameOver;
@@ -224,7 +281,7 @@ impl Game {
 
     fn check_item_pickup(&mut self) {
         let pickup_range = 0.5;
-        let mut picked_indices = Vec::new();
+        let mut picked_items: Vec<(usize, String)> = Vec::new();
 
         for (i, ground_item) in self.ground_items.iter().enumerate() {
             let dx = ground_item.x - self.player.x;
@@ -233,13 +290,21 @@ impl Game {
 
             if dist <= pickup_range {
                 if self.player.inventory.add_item(ground_item.item.clone()) {
-                    picked_indices.push(i);
+                    let item_name = ground_item.item.name().to_string();
+                    picked_items.push((i, item_name));
                 }
             }
         }
 
-        for i in picked_indices.into_iter().rev() {
+        for (i, item_name) in picked_items.into_iter().rev() {
             self.ground_items.remove(i);
+            // Spawn floating text
+            let text = format!("Picked up {}!", item_name);
+            self.floating_texts.push(FloatingText::new(
+                text,
+                self.player.x,
+                self.player.y,
+            ));
         }
     }
 
@@ -276,6 +341,11 @@ impl Game {
 
         // Draw player
         self.player.draw(&self.camera);
+
+        // Draw floating texts
+        for text in &self.floating_texts {
+            text.draw(&self.camera);
+        }
     }
 
     fn draw_inventory(&self) {
