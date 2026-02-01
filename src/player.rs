@@ -16,32 +16,29 @@ pub enum Direction {
 
 impl Direction {
     /// Returns the weapon offset (x, y) relative to player center for this direction
+    /// Weapon always points UP - left/right based on horizontal movement direction
     pub fn weapon_offset(&self) -> (f32, f32) {
         match self {
-            Direction::UpLeft => (-15.0, -20.0),
-            Direction::UpRight => (15.0, -20.0),
-            Direction::DownLeft => (-15.0, 5.0),
-            Direction::DownRight => (15.0, 5.0),
+            Direction::UpLeft | Direction::DownLeft => (-15.0, -20.0),   // Left hand, pointing up
+            Direction::UpRight | Direction::DownRight => (15.0, -20.0),  // Right hand, pointing up
         }
     }
 
     /// Returns the weapon end offset for drawing the weapon line
+    /// Weapon always points UP - left/right based on horizontal movement direction
     pub fn weapon_end_offset(&self) -> (f32, f32) {
         match self {
-            Direction::UpLeft => (-30.0, -35.0),
-            Direction::UpRight => (30.0, -35.0),
-            Direction::DownLeft => (-30.0, 10.0),
-            Direction::DownRight => (30.0, 10.0),
+            Direction::UpLeft | Direction::DownLeft => (-30.0, -35.0),   // Left hand, pointing up
+            Direction::UpRight | Direction::DownRight => (30.0, -35.0),  // Right hand, pointing up
         }
     }
 
     /// Returns attack flash position offset
+    /// Flash always appears above - left/right based on horizontal movement direction
     pub fn attack_flash_offset(&self) -> (f32, f32) {
         match self {
-            Direction::UpLeft => (-25.0, -30.0),
-            Direction::UpRight => (25.0, -30.0),
-            Direction::DownLeft => (-25.0, 5.0),
-            Direction::DownRight => (25.0, 5.0),
+            Direction::UpLeft | Direction::DownLeft => (-25.0, -30.0),   // Left side, above
+            Direction::UpRight | Direction::DownRight => (25.0, -30.0),  // Right side, above
         }
     }
 }
@@ -71,7 +68,7 @@ impl Player {
             inventory: Inventory::new(),
             attack_cooldown: 0.0,
             regen_timer: 0.0,
-            facing: Direction::DownRight, // Default facing
+            facing: Direction::UpRight, // Default facing - weapon starts in right hand, pointing up
         }
     }
 
@@ -152,7 +149,8 @@ impl Player {
 
     pub fn take_damage(&mut self, raw_damage: i32) {
         let reduction = self.armor.as_ref().map(|a| a.damage_reduction()).unwrap_or(0);
-        let damage = (raw_damage - reduction).max(0);
+        // Minimum damage is always 1 - armor can never reduce damage to zero
+        let damage = (raw_damage - reduction).max(1);
         self.health = (self.health - damage).max(0);
     }
 

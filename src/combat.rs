@@ -33,9 +33,9 @@ impl Item {
             Item::Weapon(WeaponType::Sword) => "Damage: 1-10".to_string(),
             Item::Weapon(WeaponType::Axe) => "Damage: 5-8".to_string(),
             Item::Weapon(WeaponType::Mace) => "Damage: 7".to_string(),
-            Item::Armor(ArmorType::Leather) => "Reduces damage by 10".to_string(),
-            Item::Armor(ArmorType::Chainmail) => "Reduces damage by 20".to_string(),
-            Item::Armor(ArmorType::Platemail) => "Reduces damage by 30".to_string(),
+            Item::Armor(ArmorType::Leather) => "Reduces damage by 1".to_string(),
+            Item::Armor(ArmorType::Chainmail) => "Reduces damage by 2".to_string(),
+            Item::Armor(ArmorType::Platemail) => "Reduces damage by 4".to_string(),
         }
     }
 
@@ -87,14 +87,15 @@ impl ArmorType {
 
     pub fn damage_reduction(&self) -> i32 {
         match self {
-            ArmorType::Leather => 10,
-            ArmorType::Chainmail => 20,
-            ArmorType::Platemail => 30,
+            ArmorType::Leather => 1,
+            ArmorType::Chainmail => 2,
+            ArmorType::Platemail => 4,
         }
     }
 }
 
 pub fn calculate_damage(base_damage: i32, armor: Option<&ArmorType>) -> i32 {
     let reduction = armor.map(|a| a.damage_reduction()).unwrap_or(0);
-    (base_damage - reduction).max(0)
+    // Minimum damage is always 1 - armor can never reduce damage to zero
+    (base_damage - reduction).max(1)
 }
